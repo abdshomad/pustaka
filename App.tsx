@@ -2,16 +2,92 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import useLibrary from './hooks/useLibrary';
 import BookCard from './components/BookCard';
 import AddBookModal from './components/AddBookModal';
 import Footer from './components/Footer';
 
+type SortBy = 'added' | 'title' | 'author';
+type SortDirection = 'asc' | 'desc';
+
+// A small, self-contained component for the sort buttons to keep the main component clean.
+const SortButton: React.FC<{
+  label: string;
+  column: SortBy;
+  activeColumn: SortBy;
+  direction: SortDirection;
+  onClick: () => void;
+}> = ({ label, column, activeColumn, direction, onClick }) => {
+  const isActive = column === activeColumn;
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1 text-sm font-semibold rounded-md flex items-center gap-1.5 transition-colors ${
+        isActive
+          ? 'bg-yellow-500 text-black'
+          : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+      }`}
+      aria-label={`Sort by ${label} in ${isActive && direction === 'asc' ? 'descending' : 'ascending'} order`}
+    >
+      {label}
+      {isActive && (
+        <motion.div
+          key={direction}
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0, rotate: direction === 'asc' ? 0 : 180 }}
+          transition={{ duration: 0.2 }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+          </svg>
+        </motion.div>
+      )}
+    </button>
+  );
+};
+
+
 function App() {
   const { library, addBook, removeBook } = useLibrary();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<SortBy>('added');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  const handleSortChange = (newSortBy: SortBy) => {
+    if (sortBy === newSortBy) {
+      // If clicking the same button, toggle direction
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      // If clicking a new button, set new sort type and default direction
+      setSortBy(newSortBy);
+      setSortDirection(newSortBy === 'added' ? 'desc' : 'asc');
+    }
+  };
+
+  const sortedLibrary = useMemo(() => {
+    const libraryCopy = [...library];
+
+    if (sortBy === 'added') {
+      // The hook already returns newest first, which is 'desc'
+      return sortDirection === 'asc' ? libraryCopy.reverse() : libraryCopy;
+    }
+
+    libraryCopy.sort((a, b) => {
+      if (sortBy === 'title') {
+        return a.title.localeCompare(b.title);
+      }
+      // sortBy === 'author'
+      return a.author.localeCompare(b.author);
+    });
+
+    if (sortDirection === 'desc') {
+      return libraryCopy.reverse();
+    }
+
+    return libraryCopy;
+  }, [library, sortBy, sortDirection]);
 
   return (
     <main className="bg-neutral-900 text-neutral-200 min-h-screen w-full flex flex-col items-center p-4 sm:p-8 pb-24 relative">
@@ -22,13 +98,21 @@ function App() {
 
       <div className="w-full max-w-7xl flex-1">
         {library.length > 0 ? (
-          <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 w-full">
-            <AnimatePresence>
-              {library.map((book) => (
-                <BookCard key={book.key} book={book} onRemove={removeBook} />
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <>
+            <div className="flex items-center justify-end gap-2 mb-4 px-1">
+              <span className="text-neutral-400 text-sm mr-2">Sort by:</span>
+              <SortButton label="Date Added" column="added" activeColumn={sortBy} direction={sortDirection} onClick={() => handleSortChange('added')} />
+              <SortButton label="Title" column="title" activeColumn={sortBy} direction={sortDirection} onClick={() => handleSortChange('title')} />
+              <SortButton label="Author" column="author" activeColumn={sortBy} direction={sortDirection} onClick={() => handleSortChange('author')} />
+            </div>
+            <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 w-full">
+              <AnimatePresence>
+                {sortedLibrary.map((book) => (
+                  <BookCard key={book.key} book={book} onRemove={removeBook} />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center text-neutral-500 h-full mt-16">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
