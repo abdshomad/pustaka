@@ -9,6 +9,7 @@ export interface Book {
   author: string;
   coverUrl: string;
   isbn?: string;
+  description?: string;
 }
 
 /**
@@ -40,4 +41,43 @@ export async function searchBooks(query: string): Promise<Book[]> {
       console.error("Failed to search books:", error);
       throw new Error("There was an issue searching for books. Please check your connection and try again.");
   }
+}
+
+/**
+ * Fetches a book's description from the Open Library Works API.
+ * @param bookKey The key of the book work (e.g., /works/OL...).
+ * @returns A promise that resolves to the book's description string.
+ */
+export async function getBookDescription(bookKey: string): Promise<string> {
+    if (!bookKey || !bookKey.startsWith('/works/')) {
+        console.warn('Invalid book key for details fetching:', bookKey);
+        return 'Description not available for this entry.';
+    }
+    try {
+        const response = await fetch(`https://openlibrary.org${bookKey}.json`);
+        if (!response.ok) {
+            throw new Error(`Open Library Works API responded with status: ${response.status}`);
+        }
+        const data = await response.json();
+
+        let description = 'No description available.';
+        if (data.description) {
+            if (typeof data.description === 'string') {
+                description = data.description;
+            } else if (typeof data.description === 'object' && data.description.value) {
+                description = data.description.value;
+            }
+        }
+        
+        // Clean up common OpenLibrary description artifacts
+        description = description.replace(/\[\d+\]/g, '') // remove citation marks like [1]
+                                 .replace(/- - - - - - - - - - - - - - -/g, '') // remove divider lines
+                                 .replace(/\/\*.*?\*\//g, '') // remove /* */ comments
+                                 .trim();
+
+        return description;
+    } catch (error) {
+        console.error(`Failed to get book description for key ${bookKey}:`, error);
+        return 'Could not load description.';
+    }
 }

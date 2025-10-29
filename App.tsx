@@ -8,6 +8,9 @@ import useLibrary from './hooks/useLibrary';
 import BookCard from './components/BookCard';
 import AddBookModal from './components/AddBookModal';
 import Footer from './components/Footer';
+import BookDetailModal from './components/BookDetailModal';
+import { getBookDescription } from './services/bookService';
+import type { Book } from './services/bookService';
 
 type SortBy = 'added' | 'title' | 'author';
 type SortDirection = 'asc' | 'desc';
@@ -54,6 +57,8 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>('added');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   const handleSortChange = (newSortBy: SortBy) => {
     if (sortBy === newSortBy) {
@@ -89,6 +94,18 @@ function App() {
     return libraryCopy;
   }, [library, sortBy, sortDirection]);
 
+  const handleBookClick = async (book: Book) => {
+    setSelectedBook(book);
+    setIsLoadingDetails(true);
+    const description = await getBookDescription(book.key);
+    setSelectedBook({ ...book, description });
+    setIsLoadingDetails(false);
+  };
+
+  const handleCloseDetailModal = () => {
+    setSelectedBook(null);
+  };
+
   return (
     <main className="bg-neutral-900 text-neutral-200 min-h-screen w-full flex flex-col items-center p-4 sm:p-8 pb-24 relative">
       <div className="text-center my-8 z-10">
@@ -108,7 +125,12 @@ function App() {
             <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 w-full">
               <AnimatePresence>
                 {sortedLibrary.map((book) => (
-                  <BookCard key={book.key} book={book} onRemove={removeBook} />
+                  <BookCard
+                    key={book.key}
+                    book={book}
+                    onRemove={removeBook}
+                    onClick={handleBookClick}
+                  />
                 ))}
               </AnimatePresence>
             </motion.div>
@@ -143,6 +165,16 @@ function App() {
               setIsModalOpen(false);
             }}
             library={library}
+          />
+        )}
+      </AnimatePresence>
+      
+      <AnimatePresence>
+        {selectedBook && (
+          <BookDetailModal
+            book={selectedBook}
+            isLoading={isLoadingDetails}
+            onClose={handleCloseDetailModal}
           />
         )}
       </AnimatePresence>
