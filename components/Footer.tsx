@@ -15,14 +15,6 @@ const Footer: React.FC<FooterProps> = ({ bookCount }) => {
                 <p>
                     {bookCount} {bookCount === 1 ? 'book' : 'books'} in library
                 </p>
-                <a
-                    href="https://aistudio.google.com/apps"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-center text-black bg-yellow-400 py-2 px-4 rounded-md transform transition-transform duration-200 hover:scale-105 hover:bg-yellow-300 shadow-[1px_1px_0px_1px_rgba(0,0,0,0.2)] whitespace-nowrap"
-                >
-                    Apps on AI Studio
-                </a>
             </div>
         </footer>
     );

@@ -42,7 +42,7 @@ function App() {
 
       <button
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-8 right-8 bg-yellow-500 text-black rounded-full w-16 h-16 flex items-center justify-center shadow-lg hover:bg-yellow-400 transform transition-transform hover:scale-110 z-50"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-yellow-500 text-black rounded-full w-16 h-16 flex items-center justify-center shadow-lg hover:bg-yellow-400 transform transition-transform hover:scale-110 z-50"
         aria-label="Add new book"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

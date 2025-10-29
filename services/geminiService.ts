@@ -32,7 +32,7 @@ export async function identifyBookFromImage(imageDataUrl: string): Promise<BookD
   const imagePart = {
     inlineData: { mimeType, data: base64Data },
   };
-  const textPart = { text: "Identify the book's title and author from this image. If you cannot identify a book, respond with an empty title and author." };
+  const textPart = { text: "Identify the book's title and author from this image. The image could be of the book cover or a barcode (like an ISBN). If you cannot identify a book, respond with an empty title and author." };
 
   try {
     const response = await ai.models.generateContent({

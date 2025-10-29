@@ -41,7 +41,7 @@ const LoadingSpinner: React.FC<{ text: string }> = ({ text }) => (
 );
 
 const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, library }) => {
-  const [mode, setMode] = useState<'text' | 'camera'>('text');
+  const [mode, setMode] = useState<'text' | 'camera'>('camera');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Book[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'no-results'>('idle');
@@ -54,13 +54,6 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
   const streamRef = useRef<MediaStream | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    // Focus the input field when the modal opens in 'text' mode
-    if (mode === 'text' && inputRef.current) {
-        inputRef.current.focus();
-    }
-  }, [mode]);
-
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -72,7 +65,10 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
     setCameraState('off');
   }, []);
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
+    // Don't restart if already on
+    if (cameraState === 'on' || cameraState === 'starting') return;
+    
     stopCamera();
     setCameraState('starting');
     try {
@@ -89,7 +85,19 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
         setStatus('error');
         setCameraState('off');
     }
-  };
+  }, [stopCamera, cameraState]);
+
+  useEffect(() => {
+    // Focus the input field when the modal opens in 'text' mode
+    if (mode === 'text' && inputRef.current) {
+        inputRef.current.focus();
+    }
+  }, [mode]);
+
+  // Start camera on mount since it's the default mode.
+  useEffect(() => {
+    startCamera();
+  }, [startCamera]);
 
   const handleCapture = () => {
     if (videoRef.current && canvasRef.current) {
@@ -144,7 +152,7 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
     setError('');
     setQuery('');
     setCapturedImage(null);
-    if (newMode === 'camera' && cameraState === 'off') {
+    if (newMode === 'camera') {
         startCamera();
     } else if (newMode === 'text') {
         stopCamera();
@@ -191,7 +199,6 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
         <div className="overflow-y-auto flex-1 min-h-0">
           {mode === 'camera' && (
             <div className="p-4 pt-0">
-                {cameraState === 'off' && !capturedImage && <div className="text-center p-8 text-neutral-400">Click the tab again to start camera.</div>}
                 {cameraState === 'starting' && <LoadingSpinner text="Starting camera..." />}
                 {(cameraState === 'on' || cameraState === 'captured') && (
                     <div className="relative aspect-video bg-black rounded-md overflow-hidden">
