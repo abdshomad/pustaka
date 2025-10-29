@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { searchBooks, Book } from '../services/bookService';
 import { identifyBookFromImage } from '../services/geminiService';
 
@@ -30,6 +30,34 @@ const SearchResultCard: React.FC<{ book: Book, onAdd: () => void, isAdded: boole
     </div>
 );
 
+const ScannedBookCard: React.FC<{ book: Book, isAlreadyInLibrary: boolean }> = ({ book, isAlreadyInLibrary }) => (
+    <motion.div
+        layout
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-4 p-2 bg-neutral-700/50 rounded-md"
+    >
+        <img src={book.coverUrl} alt={book.title} className="w-12 h-18 object-cover rounded-sm flex-shrink-0" />
+        <div className="overflow-hidden">
+            <p className="font-bold truncate text-white">{book.title}</p>
+            <p className="text-sm text-neutral-400 truncate">{book.author}</p>
+        </div>
+        <div className="ml-auto text-green-400 flex-shrink-0 flex items-center gap-2">
+            {isAlreadyInLibrary ? (
+                <span className="text-xs text-neutral-400 font-semibold">IN LIBRARY</span>
+            ) : (
+                <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm font-semibold">Added</span>
+                </>
+            )}
+        </div>
+    </motion.div>
+);
+
+
 const LoadingSpinner: React.FC<{ text: string }> = ({ text }) => (
     <div className="flex flex-col items-center justify-center text-center p-8">
         <svg className="animate-spin h-8 w-8 text-yellow-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -42,12 +70,18 @@ const LoadingSpinner: React.FC<{ text: string }> = ({ text }) => (
 
 const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, library }) => {
   const [mode, setMode] = useState<'text' | 'camera'>('camera');
+  
+  // State for text search
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Book[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'no-results'>('idle');
   const [error, setError] = useState('');
-  const [cameraState, setCameraState] = useState<'off' | 'starting' | 'on' | 'captured'>('off');
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+
+  // State for camera scanning
+  const [cameraState, setCameraState] = useState<'off' | 'starting' | 'on'>('off');
+  const [isProcessingScan, setIsProcessingScan] = useState(false);
+  const [scannedBooks, setScannedBooks] = useState<Book[]>([]);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,7 +100,6 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
   }, []);
 
   const startCamera = useCallback(async () => {
-    // Don't restart if already on
     if (cameraState === 'on' || cameraState === 'starting') return;
     
     stopCamera();
@@ -82,36 +115,56 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
     } catch (err) {
         console.error("Camera error:", err);
         setError("Could not access camera. Please check permissions.");
-        setStatus('error');
+        setStatus('error'); // Use the main error state for camera start failure
         setCameraState('off');
     }
   }, [stopCamera, cameraState]);
 
   useEffect(() => {
-    // Focus the input field when the modal opens in 'text' mode
     if (mode === 'text' && inputRef.current) {
         inputRef.current.focus();
     }
   }, [mode]);
 
-  // Start camera on mount since it's the default mode.
   useEffect(() => {
     startCamera();
   }, [startCamera]);
 
-  const handleCapture = () => {
-    if (videoRef.current && canvasRef.current) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d');
-        context?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        setCapturedImage(dataUrl);
-        setCameraState('captured');
-        stopCamera();
-        handleImageSearch(dataUrl);
+  const handleCapture = async () => {
+    if (!videoRef.current || !canvasRef.current || isProcessingScan) return;
+    
+    setIsProcessingScan(true);
+    setScanError(null);
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    context?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+    const dataUrl = canvas.toDataURL('image/jpeg');
+
+    try {
+      const bookDetails = await identifyBookFromImage(dataUrl);
+      const foundBooks = await searchBooks(`${bookDetails.title} ${bookDetails.author}`);
+
+      if (foundBooks.length > 0) {
+        const bookToAdd = foundBooks[0];
+        
+        if (!library.some(b => b.key === bookToAdd.key)) {
+            onBookAdded(bookToAdd);
+        }
+
+        if (!scannedBooks.some(b => b.key === bookToAdd.key)) {
+            setScannedBooks(prev => [bookToAdd, ...prev]);
+        }
+      } else {
+        throw new Error(`Could not find a book matching "${bookDetails.title}". Try a different angle or lighting.`);
+      }
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : 'An unknown error occurred while scanning.');
+    } finally {
+      setIsProcessingScan(false);
     }
   };
 
@@ -130,28 +183,16 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
     }
   };
 
-  const handleImageSearch = async (imageDataUrl: string) => {
-    setStatus('loading');
-    setError('');
-    setResults([]);
-    try {
-        const bookDetails = await identifyBookFromImage(imageDataUrl);
-        await handleSearch(`${bookDetails.title} ${bookDetails.author}`);
-    } catch(err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred while scanning.');
-        setStatus('error');
-        setCapturedImage(null);
-        setCameraState('off');
-    }
-  };
-
   const handleModeChange = (newMode: 'text' | 'camera') => {
     setMode(newMode);
     setResults([]);
     setStatus('idle');
     setError('');
     setQuery('');
-    setCapturedImage(null);
+    setScannedBooks([]);
+    setScanError(null);
+    setIsProcessingScan(false);
+
     if (newMode === 'camera') {
         startCamera();
     } else if (newMode === 'text') {
@@ -159,7 +200,6 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
     }
   };
 
-  // Cleanup camera on component unmount
   useEffect(() => {
     return () => stopCamera();
   }, [stopCamera]);
@@ -180,71 +220,82 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
           </div>
         </div>
 
-        <div className="p-4 flex-shrink-0">
-          {mode === 'text' && (
-            <form onSubmit={e => { e.preventDefault(); handleSearch(query); }} className="flex gap-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder="Search by Title, Author, or ISBN..."
-                className="w-full bg-neutral-700 border border-neutral-600 rounded-md px-3 py-2 text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              />
-              <button type="submit" className="bg-yellow-500 text-black px-4 py-2 rounded-md font-semibold hover:bg-yellow-400 transition-colors">Search</button>
-            </form>
-          )}
-        </div>
+        {mode === 'text' && (
+            <div className="p-4 flex-shrink-0">
+                <form onSubmit={e => { e.preventDefault(); handleSearch(query); }} className="flex gap-2">
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder="Search by Title, Author, or ISBN..."
+                    className="w-full bg-neutral-700 border border-neutral-600 rounded-md px-3 py-2 text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                />
+                <button type="submit" className="bg-yellow-500 text-black px-4 py-2 rounded-md font-semibold hover:bg-yellow-400 transition-colors">Search</button>
+                </form>
+            </div>
+        )}
 
         <div className="overflow-y-auto flex-1 min-h-0">
           {mode === 'camera' && (
             <div className="p-4 pt-0">
+              <div className="relative aspect-video bg-black rounded-md overflow-hidden mb-4">
                 {cameraState === 'starting' && <LoadingSpinner text="Starting camera..." />}
-                {(cameraState === 'on' || cameraState === 'captured') && (
-                    <div className="relative aspect-video bg-black rounded-md overflow-hidden">
-                        <video ref={videoRef} className={`w-full h-full object-contain ${cameraState !== 'on' ? 'hidden' : ''}`} playsInline muted />
-                        <canvas ref={canvasRef} className="hidden" />
-                        {capturedImage && <img src={capturedImage} className="w-full h-full object-contain" alt="Captured book cover" />}
-                        {cameraState === 'on' && (
-                            <button onClick={handleCapture} className="absolute bottom-4 left-1/2 -translate-x-1/2 w-16 h-16 bg-white/20 border-4 border-white rounded-full backdrop-blur-sm" aria-label="Take picture"></button>
-                        )}
+                <video ref={videoRef} className={`w-full h-full object-contain ${cameraState !== 'on' ? 'hidden' : 'block'}`} playsInline muted />
+                <canvas ref={canvasRef} className="hidden" />
+                
+                {cameraState === 'on' && (
+                    <button onClick={handleCapture} disabled={isProcessingScan} className="absolute bottom-4 left-1/2 -translate-x-1/2 w-16 h-16 bg-white/20 border-4 border-white rounded-full backdrop-blur-sm transition-opacity disabled:opacity-50" aria-label="Take picture"></button>
+                )}
+
+                {isProcessingScan && (
+                     <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center">
+                        <LoadingSpinner text="Scanning & Adding..." />
                     </div>
                 )}
-            </div>
-          )}
+              </div>
 
-          {status === 'loading' && <LoadingSpinner text={capturedImage ? "Analyzing cover..." : "Searching..."}/>}
-          {status === 'error' && (
-            <div className="text-center p-8 text-red-400">
-              <p>{error}</p>
-              {mode === 'camera' && (
-                <button
-                  onClick={() => {
-                    setStatus('idle');
-                    setError('');
-                    setCapturedImage(null);
-                    startCamera();
-                  }}
-                  className="mt-4 bg-yellow-500 text-black px-4 py-2 rounded-md font-semibold hover:bg-yellow-400 transition-colors"
-                >
-                  Scan Again
-                </button>
-              )}
+              <div>
+                  <h3 className="font-semibold text-neutral-300 mb-2 px-1">Scanned This Session</h3>
+                  {scanError && <p className="text-red-400 text-sm px-1 mb-2">{scanError}</p>}
+                  {scannedBooks.length > 0 ? (
+                      <div className="space-y-2">
+                          <AnimatePresence>
+                             {scannedBooks.map(book => (
+                                  <ScannedBookCard
+                                      key={book.key}
+                                      book={book}
+                                      isAlreadyInLibrary={library.some(libBook => libBook.key === book.key)}
+                                  />
+                              ))}
+                          </AnimatePresence>
+                      </div>
+                  ) : (
+                    !scanError && <p className="text-neutral-500 text-sm text-center py-4">Point your camera at a book cover and tap the button to add it.</p>
+                  )}
+              </div>
             </div>
           )}
-          {status === 'no-results' && <div className="text-center p-8 text-neutral-400">No books found. Try a different search.</div>}
           
-          {results.length > 0 && (
-            <div className="px-4 pb-4 space-y-2">
-                {results.map(book => (
-                    <SearchResultCard
-                        key={book.key}
-                        book={book}
-                        onAdd={() => onBookAdded(book)}
-                        isAdded={library.some(libBook => libBook.key === book.key)}
-                    />
-                ))}
-            </div>
+          {mode === 'text' && (
+              <>
+                {status === 'loading' && <LoadingSpinner text="Searching..."/>}
+                {status === 'error' && <div className="text-center p-8 text-red-400"><p>{error}</p></div>}
+                {status === 'no-results' && <div className="text-center p-8 text-neutral-400">No books found. Try a different search.</div>}
+                
+                {results.length > 0 && (
+                    <div className="px-4 pb-4 space-y-2">
+                        {results.map(book => (
+                            <SearchResultCard
+                                key={book.key}
+                                book={book}
+                                onAdd={() => onBookAdded(book)}
+                                isAdded={library.some(libBook => libBook.key === book.key)}
+                            />
+                        ))}
+                    </div>
+                )}
+              </>
           )}
         </div>
       </motion.div>
