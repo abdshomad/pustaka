@@ -214,7 +214,24 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
           )}
 
           {status === 'loading' && <LoadingSpinner text={capturedImage ? "Analyzing cover..." : "Searching..."}/>}
-          {status === 'error' && <div className="text-center p-8 text-red-400">{error}</div>}
+          {status === 'error' && (
+            <div className="text-center p-8 text-red-400">
+              <p>{error}</p>
+              {mode === 'camera' && (
+                <button
+                  onClick={() => {
+                    setStatus('idle');
+                    setError('');
+                    setCapturedImage(null);
+                    startCamera();
+                  }}
+                  className="mt-4 bg-yellow-500 text-black px-4 py-2 rounded-md font-semibold hover:bg-yellow-400 transition-colors"
+                >
+                  Scan Again
+                </button>
+              )}
+            </div>
+          )}
           {status === 'no-results' && <div className="text-center p-8 text-neutral-400">No books found. Try a different search.</div>}
           
           {results.length > 0 && (
