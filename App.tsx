@@ -2,14 +2,14 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import useLibrary from './hooks/useLibrary';
 import BookCard from './components/BookCard';
 import AddBookModal from './components/AddBookModal';
 import Footer from './components/Footer';
 import BookDetailModal from './components/BookDetailModal';
-import { getBookDescription } from './services/bookService';
+import { getBookDescription, fetchBestsellersByCountry } from './services/bookService';
 import type { Book } from './services/bookService';
 
 type SortBy = 'added' | 'title' | 'author';
@@ -51,6 +51,22 @@ const SortButton: React.FC<{
   );
 };
 
+const getCountryName = (): string => {
+    try {
+      const userLocale = navigator.language || 'en-US';
+      // Use Intl.Locale to robustly get the region code (e.g., 'en-US' -> 'US')
+      const regionCode = new Intl.Locale(userLocale).region;
+      if (regionCode) {
+          // Use Intl.DisplayNames to get the full country name (e.g., 'US' -> 'United States')
+          const displayName = new Intl.DisplayNames(['en'], { type: 'region' });
+          return displayName.of(regionCode) || 'the United States';
+      }
+    } catch (e) {
+      console.warn('Could not determine country from locale, falling back.', e);
+    }
+    // A sensible default if Intl APIs fail or no region code is found
+    return 'the United States';
+};
 
 function App() {
   const { library, addBook, removeBook } = useLibrary();
@@ -59,13 +75,37 @@ function App() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  
+  // State for sample books when library is empty
+  const [sampleBooks, setSampleBooks] = useState<Book[]>([]);
+  const [isLoadingSamples, setIsLoadingSamples] = useState(false);
+  const [samplesError, setSamplesError] = useState<string | null>(null);
+  
+  // Fetch sample books when the library is empty
+  useEffect(() => {
+    if (library.length === 0) {
+      const loadSampleBooks = async () => {
+        setIsLoadingSamples(true);
+        setSamplesError(null);
+        try {
+          const country = getCountryName();
+          const bestsellers = await fetchBestsellersByCountry(country);
+          setSampleBooks(bestsellers);
+        } catch (error) {
+          console.error("Failed to load sample books:", error);
+          setSamplesError("Could not load popular books at this time.");
+        } finally {
+          setIsLoadingSamples(false);
+        }
+      };
+      loadSampleBooks();
+    }
+  }, [library.length]); // Reruns if the library becomes empty again
 
   const handleSortChange = (newSortBy: SortBy) => {
     if (sortBy === newSortBy) {
-      // If clicking the same button, toggle direction
       setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
-      // If clicking a new button, set new sort type and default direction
       setSortBy(newSortBy);
       setSortDirection(newSortBy === 'added' ? 'desc' : 'asc');
     }
@@ -73,25 +113,15 @@ function App() {
 
   const sortedLibrary = useMemo(() => {
     const libraryCopy = [...library];
-
     if (sortBy === 'added') {
-      // The hook already returns newest first, which is 'desc'
       return sortDirection === 'asc' ? libraryCopy.reverse() : libraryCopy;
     }
-
     libraryCopy.sort((a, b) => {
-      if (sortBy === 'title') {
-        return a.title.localeCompare(b.title);
-      }
-      // sortBy === 'author'
-      return a.author.localeCompare(b.author);
+      const field = sortBy === 'title' ? a.title : a.author;
+      const compareField = sortBy === 'title' ? b.title : b.author;
+      return field.localeCompare(compareField);
     });
-
-    if (sortDirection === 'desc') {
-      return libraryCopy.reverse();
-    }
-
-    return libraryCopy;
+    return sortDirection === 'desc' ? libraryCopy.reverse() : libraryCopy;
   }, [library, sortBy, sortDirection]);
 
   const handleBookClick = async (book: Book) => {
@@ -105,6 +135,56 @@ function App() {
   const handleCloseDetailModal = () => {
     setSelectedBook(null);
   };
+
+  const renderEmptyState = () => {
+    if (isLoadingSamples) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-center text-neutral-500 h-full mt-16">
+          <svg className="animate-spin h-12 w-12 text-yellow-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <h2 className="text-2xl font-bold mt-4">Finding popular books...</h2>
+          <p className="mt-2">Curating a list of bestsellers for you.</p>
+        </div>
+      );
+    }
+
+    if (sampleBooks.length > 0 && !samplesError) {
+      return (
+        <>
+            <div className="text-center mb-6 mt-8">
+                <h2 className="text-3xl font-bold text-neutral-300">Your Bookshelf is Empty</h2>
+                <p className="text-neutral-400 mt-1">Get started by adding some of these popular books.</p>
+            </div>
+            <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 w-full">
+              <AnimatePresence>
+                {sampleBooks.map((book) => (
+                  <BookCard
+                    key={book.key}
+                    book={book}
+                    onAdd={addBook}
+                    isAdded={library.some(libBook => libBook.key === book.key)}
+                    onClick={handleBookClick}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+        </>
+      );
+    }
+    
+    // Fallback to original empty state if samples fail or return empty
+    return (
+        <div className="flex-1 flex flex-col items-center justify-center text-center text-neutral-500 h-full mt-16">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <h2 className="text-2xl font-bold mt-4">Your bookshelf is empty</h2>
+            <p className="mt-2">{samplesError || "Click the '+' button to add your first book."}</p>
+          </div>
+    );
+  }
 
   return (
     <main className="bg-neutral-900 text-neutral-200 min-h-screen w-full flex flex-col items-center p-4 sm:p-8 pb-24 relative">
@@ -136,13 +216,7 @@ function App() {
             </motion.div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center text-neutral-500 h-full mt-16">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-            <h2 className="text-2xl font-bold mt-4">Your bookshelf is empty</h2>
-            <p className="mt-2">Click the '+' button to add your first book.</p>
-          </div>
+          renderEmptyState()
         )}
       </div>
 

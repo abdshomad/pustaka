@@ -72,3 +72,35 @@ export async function identifyBookFromImage(imageDataUrl: string): Promise<BookD
       throw new Error(`Failed to analyze book cover. Details: ${errorMessage}`);
   }
 }
+
+/**
+ * Fetches a list of best-selling books for a given country using the Gemini API.
+ * @param country The name of the country.
+ * @returns A promise that resolves to an array of book details (title and author).
+ */
+export async function getBestsellers(country: string): Promise<BookDetails[]> {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `List the top 6 current best-selling books (a mix of fiction and non-fiction) in ${country}. Respond with a JSON array where each object has a "title" and "author" key. Do not include any other text in your response.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING, description: "The title of the book." },
+              author: { type: Type.STRING, description: "The author of the book." },
+            },
+            required: ['title', 'author'],
+          },
+        },
+      },
+    });
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error(`Error fetching bestsellers for ${country}:`, error);
+    return [];
+  }
+}

@@ -8,14 +8,60 @@ import type { Book } from '../services/bookService';
 
 interface BookCardProps {
   book: Book;
-  onRemove: (bookKey: string) => void;
   onClick: (book: Book) => void;
+  onRemove?: (bookKey: string) => void;
+  onAdd?: (book: Book) => void;
+  isAdded?: boolean;
 }
 
-const BookCard: React.FC<BookCardProps> = ({ book, onRemove, onClick }) => {
-  const handleRemove = (e: React.MouseEvent) => {
+const BookCard: React.FC<BookCardProps> = ({ book, onRemove, onClick, onAdd, isAdded }) => {
+  const handleAction = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onRemove(book.key);
+    if (onRemove) {
+      onRemove(book.key);
+    } else if (onAdd && !isAdded) {
+      onAdd(book);
+    }
+  };
+  
+  const renderActionButton = () => {
+    if (onRemove) {
+      return (
+        <button
+          onClick={handleAction}
+          className="absolute top-2 right-2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-all"
+          aria-label={`Remove ${book.title} from library`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      );
+    }
+
+    if (onAdd) {
+      return (
+        <button
+          onClick={handleAction}
+          disabled={isAdded}
+          className={`absolute top-2 right-2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white transition-all opacity-0 group-hover:opacity-100 ${
+            isAdded ? 'bg-green-600 cursor-not-allowed !opacity-100' : 'hover:bg-green-500'
+          }`}
+          aria-label={isAdded ? `${book.title} is in your library` : `Add ${book.title} to library`}
+        >
+          {isAdded ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          )}
+        </button>
+      );
+    }
+    return null;
   };
 
   return (
@@ -50,15 +96,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, onRemove, onClick }) => {
         <p className="text-xs text-neutral-300 drop-shadow-md">{book.author}</p>
       </div>
 
-      <button
-        onClick={handleRemove}
-        className="absolute top-2 right-2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-all"
-        aria-label={`Remove ${book.title} from library`}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      {renderActionButton()}
     </motion.div>
   );
 };

@@ -2,6 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
+import { getBestsellers } from './geminiService';
+import type { BookDetails } from './geminiService';
 
 export interface Book {
   key: string;
@@ -80,4 +82,33 @@ export async function getBookDescription(bookKey: string): Promise<string> {
         console.error(`Failed to get book description for key ${bookKey}:`, error);
         return 'Could not load description.';
     }
+}
+
+/**
+ * Fetches best-selling books for a given country by first getting a list from Gemini,
+ * then finding their details on Open Library.
+ * @param country The name of the country.
+ * @returns A promise that resolves to an array of Book objects.
+ */
+export async function fetchBestsellersByCountry(country: string): Promise<Book[]> {
+  try {
+    const bestsellerDetails = await getBestsellers(country);
+    if (!bestsellerDetails || bestsellerDetails.length === 0) {
+      return [];
+    }
+
+    const searchPromises = bestsellerDetails.map(details =>
+      searchBooks(`${details.title} ${details.author}`)
+    );
+
+    const searchResults = await Promise.all(searchPromises);
+
+    const books: Book[] = searchResults.map(result => result?.[0]).filter((book): book is Book => book !== undefined);
+    
+    // Remove duplicates that may arise from different search queries resolving to the same book
+    return Array.from(new Map(books.map(book => [book.key, book])).values());
+  } catch (error) {
+    console.error("Failed to fetch bestsellers by country:", error);
+    return [];
+  }
 }
