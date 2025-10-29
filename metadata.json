@@ -1,0 +1,7 @@
+{
+  "name": "Digital Bookshelf",
+  "description": "Scan and search for books to build your personal digital library collection, powered by Gemini and Open Library.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
