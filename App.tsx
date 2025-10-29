@@ -73,7 +73,7 @@ const getCountryName = (): string => {
 
 function App() {
   const { library, addBook, removeBook } = useLibrary();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>('added');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -92,8 +92,8 @@ function App() {
         setIsLoadingSamples(true);
         setSamplesError(null);
         try {
-          const country = getCountryName();
-          const bestsellers = await fetchBestsellersByCountry(country);
+          const country = language === 'id' ? 'Indonesia' : getCountryName();
+          const bestsellers = await fetchBestsellersByCountry(country, language);
           setSampleBooks(bestsellers);
         } catch (error) {
           console.error("Failed to load sample books:", error);
@@ -104,7 +104,7 @@ function App() {
       };
       loadSampleBooks();
     }
-  }, [library.length, t]); // Reruns if the library becomes empty again
+  }, [library.length, t, language]); // Reruns if the library becomes empty or language changes
 
   const handleSortChange = (newSortBy: SortBy) => {
     if (sortBy === newSortBy) {

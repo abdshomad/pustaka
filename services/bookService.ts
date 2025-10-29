@@ -4,6 +4,7 @@
 */
 import { getBestsellers } from './geminiService';
 import type { BookDetails } from './geminiService';
+import type { Language } from '../lib/i18n';
 
 export interface Book {
   key: string;
@@ -88,11 +89,12 @@ export async function getBookDescription(bookKey: string): Promise<string> {
  * Fetches best-selling books for a given country by first getting a list from Gemini,
  * then finding their details on Open Library.
  * @param country The name of the country.
+ * @param language The language for the bestsellers list.
  * @returns A promise that resolves to an array of Book objects.
  */
-export async function fetchBestsellersByCountry(country: string): Promise<Book[]> {
+export async function fetchBestsellersByCountry(country: string, language: Language): Promise<Book[]> {
   try {
-    const bestsellerDetails = await getBestsellers(country);
+    const bestsellerDetails = await getBestsellers(country, language);
     if (!bestsellerDetails || bestsellerDetails.length === 0) {
       return [];
     }

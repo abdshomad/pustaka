@@ -76,13 +76,25 @@ export async function identifyBookFromImage(imageDataUrl: string): Promise<BookD
 /**
  * Fetches a list of best-selling books for a given country using the Gemini API.
  * @param country The name of the country.
+ * @param language The language for the requested bestsellers.
  * @returns A promise that resolves to an array of book details (title and author).
  */
-export async function getBestsellers(country: string): Promise<BookDetails[]> {
+export async function getBestsellers(country: string, language: 'en' | 'id'): Promise<BookDetails[]> {
+  let prompt: string;
+
+  if (language === 'id') {
+    // Use a specific prompt in Indonesian for more accurate, localized results.
+    // The country is also forced to 'Indonesia' in App.tsx when this language is selected.
+    prompt = `Sebutkan 6 buku terlaris saat ini di Indonesia (campuran fiksi dan non-fiksi). Judul buku harus dalam Bahasa Indonesia. Balas dengan array JSON di mana setiap objek memiliki kunci "title" dan "author". Jangan sertakan teks lain dalam respons Anda.`;
+  } else {
+    // English prompt
+    prompt = `List the top 6 current best-selling books (a mix of fiction and non-fiction) in ${country}. The list should be of books popular in that country, written in English or translated into English. Respond with a JSON array where each object has a "title" and "author" key. Do not include any other text in your response.`;
+  }
+  
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `List the top 6 current best-selling books (a mix of fiction and non-fiction) in ${country}. Respond with a JSON array where each object has a "title" and "author" key. Do not include any other text in your response.`,
+      contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -100,7 +112,7 @@ export async function getBestsellers(country: string): Promise<BookDetails[]> {
     });
     return JSON.parse(response.text);
   } catch (error) {
-    console.error(`Error fetching bestsellers for ${country}:`, error);
+    console.error(`Error fetching bestsellers for ${country} in language ${language}:`, error);
     return [];
   }
 }
