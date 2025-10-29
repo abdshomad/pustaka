@@ -6,6 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { searchBooks, Book } from '../services/bookService';
 import { identifyBookFromImage } from '../services/geminiService';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface AddBookModalProps {
   onClose: () => void;
@@ -13,24 +14,29 @@ interface AddBookModalProps {
   library: Book[];
 }
 
-const SearchResultCard: React.FC<{ book: Book, onAdd: () => void, isAdded: boolean }> = ({ book, onAdd, isAdded }) => (
-    <div className="flex items-center gap-4 p-2 bg-neutral-700/50 rounded-md">
-        <img src={book.coverUrl} alt={book.title} className="w-12 h-18 object-cover rounded-sm flex-shrink-0" />
-        <div className="overflow-hidden">
-            <p className="font-bold truncate text-white">{book.title}</p>
-            <p className="text-sm text-neutral-400 truncate">{book.author}</p>
+const SearchResultCard: React.FC<{ book: Book, onAdd: () => void, isAdded: boolean }> = ({ book, onAdd, isAdded }) => {
+    const { t } = useLanguage();
+    return (
+        <div className="flex items-center gap-4 p-2 bg-neutral-700/50 rounded-md">
+            <img src={book.coverUrl} alt={book.title} className="w-12 h-18 object-cover rounded-sm flex-shrink-0" />
+            <div className="overflow-hidden">
+                <p className="font-bold truncate text-white">{book.title}</p>
+                <p className="text-sm text-neutral-400 truncate">{book.author}</p>
+            </div>
+            <button
+                onClick={onAdd}
+                disabled={isAdded}
+                className="ml-auto text-yellow-400 disabled:text-neutral-500 disabled:cursor-not-allowed flex-shrink-0 bg-neutral-800 disabled:bg-neutral-700 px-3 py-1 rounded-md text-sm font-semibold transition-colors"
+            >
+                {isAdded ? t('added') : t('add')}
+            </button>
         </div>
-        <button
-            onClick={onAdd}
-            disabled={isAdded}
-            className="ml-auto text-yellow-400 disabled:text-neutral-500 disabled:cursor-not-allowed flex-shrink-0 bg-neutral-800 disabled:bg-neutral-700 px-3 py-1 rounded-md text-sm font-semibold transition-colors"
-        >
-            {isAdded ? 'Added' : 'Add'}
-        </button>
-    </div>
-);
+    );
+};
 
-const ScannedBookCard: React.FC<{ book: Book, isAlreadyInLibrary: boolean }> = ({ book, isAlreadyInLibrary }) => (
+const ScannedBookCard: React.FC<{ book: Book, isAlreadyInLibrary: boolean }> = ({ book, isAlreadyInLibrary }) => {
+    const { t } = useLanguage();
+    return (
     <motion.div
         layout
         initial={{ opacity: 0, y: 20 }}
@@ -44,18 +50,19 @@ const ScannedBookCard: React.FC<{ book: Book, isAlreadyInLibrary: boolean }> = (
         </div>
         <div className="ml-auto text-green-400 flex-shrink-0 flex items-center gap-2">
             {isAlreadyInLibrary ? (
-                <span className="text-xs text-neutral-400 font-semibold">IN LIBRARY</span>
+                <span className="text-xs text-neutral-400 font-semibold">{t('inLibrary')}</span>
             ) : (
                 <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
-                    <span className="text-sm font-semibold">Added</span>
+                    <span className="text-sm font-semibold">{t('added')}</span>
                 </>
             )}
         </div>
     </motion.div>
-);
+    );
+};
 
 
 const LoadingSpinner: React.FC<{ text: string }> = ({ text }) => (
@@ -69,6 +76,7 @@ const LoadingSpinner: React.FC<{ text: string }> = ({ text }) => (
 );
 
 const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, library }) => {
+  const { t } = useLanguage();
   const [mode, setMode] = useState<'text' | 'camera'>('camera');
   
   // State for text search
@@ -215,8 +223,8 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
       >
         <div className="p-4 border-b border-neutral-700 flex-shrink-0">
           <div className="flex bg-neutral-900 rounded-md p-1">
-            <button onClick={() => handleModeChange('text')} className={`w-1/2 py-2 rounded ${mode === 'text' ? 'bg-yellow-500 text-black' : 'text-white'} font-semibold transition-colors`}>Search Text</button>
-            <button onClick={() => handleModeChange('camera')} className={`w-1/2 py-2 rounded ${mode === 'camera' ? 'bg-yellow-500 text-black' : 'text-white'} font-semibold transition-colors`}>Scan Cover</button>
+            <button onClick={() => handleModeChange('text')} className={`w-1/2 py-2 rounded ${mode === 'text' ? 'bg-yellow-500 text-black' : 'text-white'} font-semibold transition-colors`}>{t('searchTab')}</button>
+            <button onClick={() => handleModeChange('camera')} className={`w-1/2 py-2 rounded ${mode === 'camera' ? 'bg-yellow-500 text-black' : 'text-white'} font-semibold transition-colors`}>{t('scanTab')}</button>
           </div>
         </div>
 
@@ -228,10 +236,10 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
                     type="text"
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    placeholder="Search by Title, Author, or ISBN..."
+                    placeholder={t('searchPlaceholder')}
                     className="w-full bg-neutral-700 border border-neutral-600 rounded-md px-3 py-2 text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
-                <button type="submit" className="bg-yellow-500 text-black px-4 py-2 rounded-md font-semibold hover:bg-yellow-400 transition-colors">Search</button>
+                <button type="submit" className="bg-yellow-500 text-black px-4 py-2 rounded-md font-semibold hover:bg-yellow-400 transition-colors">{t('searchButton')}</button>
                 </form>
             </div>
         )}
@@ -240,23 +248,23 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
           {mode === 'camera' && (
             <div className="p-4 pt-0">
               <div className="relative aspect-video bg-black rounded-md overflow-hidden mb-4">
-                {cameraState === 'starting' && <LoadingSpinner text="Starting camera..." />}
+                {cameraState === 'starting' && <LoadingSpinner text={t('cameraStarting')} />}
                 <video ref={videoRef} className={`w-full h-full object-contain ${cameraState !== 'on' ? 'hidden' : 'block'}`} playsInline muted />
                 <canvas ref={canvasRef} className="hidden" />
                 
                 {cameraState === 'on' && (
-                    <button onClick={handleCapture} disabled={isProcessingScan} className="absolute bottom-4 left-1/2 -translate-x-1/2 w-16 h-16 bg-white/20 border-4 border-white rounded-full backdrop-blur-sm transition-opacity disabled:opacity-50" aria-label="Take picture"></button>
+                    <button onClick={handleCapture} disabled={isProcessingScan} className="absolute bottom-4 left-1/2 -translate-x-1/2 w-16 h-16 bg-white/20 border-4 border-white rounded-full backdrop-blur-sm transition-opacity disabled:opacity-50" aria-label={t('captureTooltip')}></button>
                 )}
 
                 {isProcessingScan && (
                      <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center">
-                        <LoadingSpinner text="Scanning & Adding..." />
+                        <LoadingSpinner text={t('scanning')} />
                     </div>
                 )}
               </div>
 
               <div>
-                  <h3 className="font-semibold text-neutral-300 mb-2 px-1">Scanned This Session</h3>
+                  <h3 className="font-semibold text-neutral-300 mb-2 px-1">{t('scannedSession')}</h3>
                   {scanError && <p className="text-red-400 text-sm px-1 mb-2">{scanError}</p>}
                   {scannedBooks.length > 0 ? (
                       <div className="space-y-2">
@@ -271,7 +279,7 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
                           </AnimatePresence>
                       </div>
                   ) : (
-                    !scanError && <p className="text-neutral-500 text-sm text-center py-4">Point your camera at a book cover and tap the button to add it.</p>
+                    !scanError && <p className="text-neutral-500 text-sm text-center py-4">{t('scanInstructions')}</p>
                   )}
               </div>
             </div>
@@ -281,7 +289,7 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onBookAdded, libra
               <>
                 {status === 'loading' && <LoadingSpinner text="Searching..."/>}
                 {status === 'error' && <div className="text-center p-8 text-red-400"><p>{error}</p></div>}
-                {status === 'no-results' && <div className="text-center p-8 text-neutral-400">No books found. Try a different search.</div>}
+                {status === 'no-results' && <div className="text-center p-8 text-neutral-400">{t('noResults')}</div>}
                 
                 {results.length > 0 && (
                     <div className="px-4 pb-4 space-y-2">

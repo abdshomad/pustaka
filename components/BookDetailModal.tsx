@@ -5,6 +5,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Book } from '../services/bookService';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface BookDetailModalProps {
   book: Book;
@@ -22,6 +23,8 @@ const LoadingSpinner: React.FC = () => (
 );
 
 const BookDetailModal: React.FC<BookDetailModalProps> = ({ book, isLoading, onClose }) => {
+  const { t } = useLanguage();
+
   return (
     <div
       className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
@@ -45,12 +48,12 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({ book, isLoading, onCl
                 <p className="text-lg text-neutral-300 mb-4">{book.author}</p>
                 {book.isbn && (
                     <div className="mb-4">
-                        <h3 className="font-semibold text-neutral-400 text-sm">ISBN</h3>
+                        <h3 className="font-semibold text-neutral-400 text-sm">{t('isbn')}</h3>
                         <p className="text-neutral-200">{book.isbn}</p>
                     </div>
                 )}
                 <div>
-                    <h3 className="font-semibold text-neutral-400 text-sm mb-1">Description</h3>
+                    <h3 className="font-semibold text-neutral-400 text-sm mb-1">{t('description')}</h3>
                     {isLoading ? (
                         <LoadingSpinner />
                     ) : (
@@ -66,7 +69,7 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({ book, isLoading, onCl
                     onClick={onClose}
                     className="w-full bg-yellow-500 text-black px-4 py-2 rounded-md font-semibold hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-neutral-800"
                 >
-                    Close
+                    {t('close')}
                 </button>
             </div>
         </div>

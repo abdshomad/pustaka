@@ -5,6 +5,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import type { Book } from '../services/bookService';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface BookCardProps {
   book: Book;
@@ -15,6 +16,8 @@ interface BookCardProps {
 }
 
 const BookCard: React.FC<BookCardProps> = ({ book, onRemove, onClick, onAdd, isAdded }) => {
+  const { t } = useLanguage();
+
   const handleAction = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onRemove) {
@@ -30,7 +33,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, onRemove, onClick, onAdd, isA
         <button
           onClick={handleAction}
           className="absolute top-2 right-2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-all"
-          aria-label={`Remove ${book.title} from library`}
+          aria-label={t('ariaRemoveBook', { title: book.title })}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -47,7 +50,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, onRemove, onClick, onAdd, isA
           className={`absolute top-2 right-2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white transition-all opacity-0 group-hover:opacity-100 ${
             isAdded ? 'bg-green-600 cursor-not-allowed !opacity-100' : 'hover:bg-green-500'
           }`}
-          aria-label={isAdded ? `${book.title} is in your library` : `Add ${book.title} to library`}
+          aria-label={isAdded ? t('ariaBookInLibrary', { title: book.title }) : t('ariaAddBook', { title: book.title })}
         >
           {isAdded ? (
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -75,7 +78,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, onRemove, onClick, onAdd, isA
       onClick={() => onClick(book)}
       role="button"
       tabIndex={0}
-      aria-label={`View details for ${book.title}`}
+      aria-label={t('ariaViewDetails', { title: book.title })}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           onClick(book);
